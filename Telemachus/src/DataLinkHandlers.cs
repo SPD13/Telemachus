@@ -176,6 +176,41 @@ namespace Telemachus
                 },
                 "mj.stagingInfo", "Staging Info [object stagingInfo]",
                 formatters.MechJebSimulation, APIEntry.UnitType.UNITLESS));
+
+			registerAPI(new ActionAPIEntry(
+				dataSources =>
+				{
+					TelemachusBehaviour.instance.BroadcastMessage("queueDelayedAPI", new DelayedAPIEntry(dataSources.Clone(),
+						(x) =>
+						{
+							return scriptsLoad(dataSources, int.Parse(dataSources.args[0]),
+								int.Parse(dataSources.args[1])
+								);
+						}), UnityEngine.SendMessageOptions.DontRequireReceiver);
+					return predictFailure(dataSources.vessel);
+				},
+			   "mj.scripts-load", "Load script [int memorytype, int memoryslot]", formatters.Default));
+
+			registerAPI(new ActionAPIEntry(
+				dataSources =>
+				{
+					TelemachusBehaviour.instance.BroadcastMessage("queueDelayedAPI", new DelayedAPIEntry(dataSources.Clone(),
+						(x) =>
+						{
+							return scriptsCommand(dataSources, dataSources.args[0]);
+						}), UnityEngine.SendMessageOptions.DontRequireReceiver);
+					return predictFailure(dataSources.vessel);
+				},
+			   "mj.scripts-command", "Script command [string action]", formatters.Default));
+
+			registerAPI(new APIEntry(
+				dataSources =>
+				{
+					PluginLogger.debug("Start GET");
+					return scriptsInfos(dataSources);
+				},
+				"mj.scripts-infos", "Script Infos [string stagingInfo]",
+				formatters.StringArray, APIEntry.UnitType.UNITLESS));
         }
 
         #endregion
@@ -274,6 +309,7 @@ namespace Telemachus
             }
         }
 
+
         private MechJebSimulation getStagingInfo(DataSources dataSources)
         {
             object stagingInfo = null;
@@ -331,6 +367,127 @@ namespace Telemachus
                 return null;
             }
         }
+
+		private bool scriptsLoad(DataSources dataSources, int memorytype, int memoryslot)
+		{
+			PluginLogger.debug("Finding part for scripting");
+			PartModule mechJebCore = findMechJeb(dataSources.vessel);
+
+			if (mechJebCore == null)
+			{
+				PluginLogger.debug("No Mechjeb part installed.");
+				return false;
+			}
+			else
+			{
+				try
+				{
+					PluginLogger.debug("Mechjeb part installed, reflecting.");
+					Type mechJebCoreType = mechJebCore.GetType();
+					PluginLogger.debug("Trying to get computermodule Method info");
+					MethodInfo mechJebCoreGetComputerModuleMethodInfo = mechJebCoreType.GetMethod("GetComputerModule", new[] { typeof(string) });
+					PluginLogger.debug("Trying to get calling computer method");
+					object scriptsModule = mechJebCoreGetComputerModuleMethodInfo.Invoke(mechJebCore, new object[] { "MechJebModuleScript" });
+					PluginLogger.debug("Setting Memory Type");
+					//Set memory type
+					scriptsModule.GetType().InvokeMember("setSelectedMemorySlotType", System.Reflection.BindingFlags.InvokeMethod, null, scriptsModule, new object[] { memorytype });
+					PluginLogger.debug("Loading Memory slot");
+					//call: public void LoadConfig(int slot, bool notify, bool forceSlotName)
+					scriptsModule.GetType().InvokeMember("LoadConfig", System.Reflection.BindingFlags.InvokeMethod, null, scriptsModule, new object[] { memoryslot, true, false });
+
+					return true;
+				}
+				catch (Exception e)
+				{
+					PluginLogger.debug(e.Message + " " + e.StackTrace);
+				}
+
+				return false;
+			}
+		}
+
+		private bool scriptsCommand(DataSources dataSources, string command)
+		{
+			PluginLogger.debug("Finding part for scripting");
+			PartModule mechJebCore = findMechJeb(dataSources.vessel);
+
+			if (mechJebCore == null)
+			{
+				PluginLogger.debug("No Mechjeb part installed.");
+				return false;
+			}
+			else
+			{
+				try
+				{
+					PluginLogger.debug("Mechjeb part installed, reflecting.");
+					Type mechJebCoreType = mechJebCore.GetType();
+					PluginLogger.debug("Trying to get computermodule Method info");
+					MethodInfo mechJebCoreGetComputerModuleMethodInfo = mechJebCoreType.GetMethod("GetComputerModule", new[] { typeof(string) });
+					PluginLogger.debug("Trying to get calling computer method");
+					object scriptsModule = mechJebCoreGetComputerModuleMethodInfo.Invoke(mechJebCore, new object[] { "MechJebModuleScript" });
+					PluginLogger.debug("Sending script command");
+					if (command.CompareTo("start") == 0)
+					{
+						//call: public void LoadConfig(int slot, bool notify, bool forceSlotName)
+						scriptsModule.GetType().InvokeMember("start", System.Reflection.BindingFlags.InvokeMethod, null, scriptsModule, new object[] { });
+					}
+					else if (command.CompareTo("stop") == 0)
+					{
+						scriptsModule.GetType().InvokeMember("stop", System.Reflection.BindingFlags.InvokeMethod, null, scriptsModule, new object[] { });
+					}
+					else if (command.CompareTo("gopause") == 0)
+					{
+						scriptsModule.GetType().InvokeMember("acknoledgePause", System.Reflection.BindingFlags.InvokeMethod, null, scriptsModule, new object[] { });
+					}
+					else
+					{
+						PluginLogger.debug("Error - Unknown command " + command);
+					}
+					return true;
+				}
+				catch (Exception e)
+				{
+					PluginLogger.debug(e.Message + " " + e.StackTrace);
+				}
+
+				return false;
+			}
+		}
+
+		private String scriptsInfos(DataSources dataSources)
+		{
+			PluginLogger.debug("Finding part for scripting");
+			PartModule mechJebCore = findMechJeb(dataSources.vessel);
+
+			if (mechJebCore == null)
+			{
+				PluginLogger.debug("No Mechjeb part installed.");
+				return "Error";
+			}
+			else
+			{
+				try
+				{
+					PluginLogger.debug("Mechjeb part installed, reflecting.");
+					Type mechJebCoreType = mechJebCore.GetType();
+					PluginLogger.debug("Trying to get computermodule Method info");
+					MethodInfo mechJebCoreGetComputerModuleMethodInfo = mechJebCoreType.GetMethod("GetComputerModule", new[] { typeof(string) });
+					PluginLogger.debug("Trying to get calling computer method");
+					object scriptsModule = mechJebCoreGetComputerModuleMethodInfo.Invoke(mechJebCore, new object[] { "MechJebModuleScript" });
+					PluginLogger.debug("Getting module infos");
+					String infos = (String)scriptsModule.GetType().InvokeMember("getInfos", System.Reflection.BindingFlags.InvokeMethod, null, scriptsModule, new object[] { });
+
+					return infos;
+				}
+				catch (Exception e)
+				{
+					PluginLogger.debug(e.Message + " " + e.StackTrace);
+				}
+
+				return "Error";
+			}
+		}
 
         private static int predictFailure(Vessel vessel)
         {

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <title>Smart A.S.S.</title>
+
+    <link rel="stylesheet" href="https://s3.amazonaws.com/codiqa-cdn/mobile/1.2.0/jquery.mobile-1.2.0.min.css" />
+    <link rel="stylesheet" type="text/css" href="jKSPWAPICore.css" />
+
+    <script type="text/javascript" src="jquery-1.9.1.min.js"></script>
+    <script type="text/javascript" src="jKSPWAPICore.js"></script>
+    <script src="https://s3.amazonaws.com/codiqa-cdn/jquery-1.7.2.min.js"></script>
+    <script src="https://s3.amazonaws.com/codiqa-cdn/mobile/1.2.0/jquery.mobile-1.2.0.min.js"></script>
+
+    <script>
+        function execute(command, action, id, theicon) {
+            $(id).buttonMarkup({ icon: "refresh" });
+            jKSPWAPI.call("ret=" + command + "[" + action + "]", function (d) {
+                if (d.ret == 5) {
+                    sNotify.addToQueue("Mechjeb not found.");
+                }
+                else if (d.ret > 0) {
+                    jKSPWAPI.generateNotificationWithCode(d.ret);
+                }
+                setTimeout(function () { $(id).buttonMarkup({ icon: theicon }) }, 500);
+            });
+			getInfos('#4', 'info');
+        }
+
+		function loadScript(id, theicon) {
+            $(id).buttonMarkup({ icon: "refresh" });
+            jKSPWAPI.call(
+            "ret=mj.scripts-load[" + $('#memorytype').val() + "," + $('#memoryslot').val() + "]",
+            function (d) {
+                if (d.ret == 5) {
+                    sNotify.addToQueue("Mechjeb not found.");
+                }
+                else if (d.ret > 0) {
+                    jKSPWAPI.generateNotificationWithCode(d.ret);
+                }
+                setTimeout(function () { $(id).buttonMarkup({ icon: theicon }) }, 500);
+            });
+        }
+
+		function getInfos(id, theicon) {
+            $(id).buttonMarkup({ icon: "refresh" });
+            jKSPWAPI.call("ret=mj.scripts-infos", function (d) {
+				if (d.ret == "Error")
+				{
+					$("#infos-panel").html("MechJeb data link Error");
+				}
+				else
+				{
+					var data = JSON.parse(d.ret);
+					var memorySlotType = "Global";
+					if (data.memorySlotType == 1) 
+					{
+						memorySlotType = "Vessel";
+					}
+					$("#infos-panel").html(
+						"Status: " + data.status + "<br>"
+						+ "Memory Slot: " + (data.memorySlot + 1) + " " + memorySlotType + "<br>"
+						+ "Action: " + data.lastActionIndex + "/" + data.actionsCount + "<br>"
+			    	);
+					//Hide the go pause button if the script is not waiting
+					if (data.status == "waiting")
+					{
+						$("#gobutton").show();
+					}
+					else
+					{
+						$("#gobutton").hide();
+					}
+                	setTimeout(function () { $(id).buttonMarkup({ icon: theicon }) }, 500);
+				}
+            });
+			setTimeout(function () { getInfos() }, 1000);
+        }
+    </script>
+</head>
+<body onload="getInfos()">
+    <!-- Home -->
+    <div data-role="page" id="page1">
+        <div data-role="content">
+			<center>
+				<div id="infos-panel"></div>
+                <div data-role="fieldcontain">
+					<select id="memorytype">
+					  <option value="0">Global Memory</option>
+					  <option value="1">Vessel Memory</option>
+					</select>
+                </div>
+                <div data-role="fieldcontain">
+					<select id="memoryslot">
+					  <option value="0">Slot 1</option>
+					  <option value="1">Slot 2</option>
+					  <option value="2">Slot 3</option>
+					  <option value="3">Slot 4</option>
+					  <option value="4">Slot 5</option>
+					  <option value="5">Slot 6</option>
+					  <option value="6">Slot 7</option>
+					  <option value="7">Slot 8</option>
+					</select>
+                </div>
+            </center>
+            <input type="submit" id="1" data-icon="star" data-iconpos="bottom" value="Load Script" onclick="loadScript('#1', 'star')" />
+			<input type="submit" id="2" data-inline="true" data-icon="check" data-iconpos="bottom" value="Start" onclick="execute('mj.scripts-command', 'start', '#2', 'check')" />
+			<input type="submit" id="3" data-inline="true" data-icon="alert" data-iconpos="bottom" value="Stop" onclick="execute('mj.scripts-command', 'stop', '#3', 'alert')" />
+			<input type="submit" id="4" data-inline="true" data-icon="info" data-iconpos="bottom" value="Infos" onclick="getInfos('#4', 'info')" />
+			<div id="gobutton">
+				<input type="submit" id="5" data-inline="true" data-icon="arrow-r" data-iconpos="bottom" value="GO Pause" onclick="execute('mj.scripts-command', 'gopause', '#5', 'arrow-r')" />
+			</div>
+        </div>
+    </div>
+</body>
+</html>
